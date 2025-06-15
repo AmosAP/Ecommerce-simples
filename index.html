@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini E-commerce</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+    <h1>Produtos</h1>
+    <div id="produtos"></div>
+    <h2>Carrinho</h2>
+    <div id="cart"></div>
+
+    <h1>🛍️ Loja Virtual</h1>
+
+  <section id="products-container"></section>
+
+  <h2>🛒 Carrinho</h2>
+  <section id="cart-container"></section>
+
+  <p id="message" class="message"></p>
+
+  <script src="script.js"></script>
+    
+    <p id="message"></p>
+    <script>
+        const API_URL = 'http://localhost:3000/products1';
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        async function fetchProducts() {
+            const res = await fetch(API_URL);
+            const products = await res.json();
+            renderProducts(products);
+            renderCart();
+        }
+
+          function renderProducts(products) {
+      const container = document.getElementById('products');
+      container.innerHTML = '';
+      products.forEach(prod => {
+        const div = document.createElement('div');
+        div.className = 'product';
+        div.innerHTML = `
+          <strong>${prod.name}</strong> - R$${prod.price.toFixed(2)}<br>
+          Estoque: ${prod.stock}<br>
+          <button onclick="addToCart(${prod.id})">Adicionar ao carrinho</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+        async function addToCart(productId) {
+      const res = await fetch(`${API_URL}/${productId}`);
+      const product = await res.json();
+      const existing = cart.find(item => item.id === productId);
+
+      if (existing) {
+        if (existing.quantity < product.stock) {
+          existing.quantity += 1;
+          showMessage('Produto adicionado.', true);
+        } else {
+          showMessage('Estoque insuficiente.', false);
+        }
+      } else {
+        cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
+        showMessage('Produto adicionado.', true);
+      }
+
+      saveCart();
+      renderCart();
+    }
+
+    function removeFromCart(productId) {
+      cart = cart.filter(item => item.id !== productId);
+      saveCart();
+      renderCart();
+      showMessage('Produto removido.', true);
+    }
+
+    function updateQuantity(productId, newQty) {
+      const item = cart.find(i => i.id === productId);
+      if (!item) return;
+      fetch(`${API_URL}/${productId}`).then(r => r.json()).then(product => {
+        if (newQty <= 0) {
+          removeFromCart(productId);
+        } else if (newQty <= product.stock) {
+          item.quantity = newQty;
+          saveCart();
+          renderCart();
+        } else {
+          showMessage('Estoque excedido.', false);
+        }
+      });
+    }
+
+    function renderCart() {
+      const container = document.getElementById('cart');
+      container.innerHTML = '';
+
+      if (cart.length === 0) {
+        container.innerText = 'Carrinho vazio.';
+        return;
+      }
+
+      cart.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        const subtotal = item.price * item.quantity;
+
+        div.innerHTML = `
+          <strong>${item.name}</strong> - R$${item.price.toFixed(2)} x 
+          <input type="number" value="${item.quantity}" min="1" style="width: 40px"
+            onchange="updateQuantity(${item.id}, this.value)">
+          = R$${subtotal.toFixed(2)}
+          <button onclick="removeFromCart(${item.id})">Remover</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function saveCart() {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    }
+
+    function showMessage(msg, success = true) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.className = success ? 'success' : 'error';
+      setTimeout(() => el.textContent = '', 3000);
+    }
+
+    fetchProducts();
+    </script>
+
+    
+</body>
+</html>
